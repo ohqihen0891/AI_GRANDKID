@@ -5,7 +5,10 @@
 AI GrandKid makes it easy for children living abroad to care for their ageing parents in Hong Kong. The child describes the care they want in plain English, and an AI agent carries it out over WhatsApp in Cantonese, then reports back.
 
 **Demo video:** https://drive.google.com/file/d/1rVkFYol4FLcA8l_F5v9f5da9rvYHGiEz/view?usp=sharing
+
 **Team:** Catalyst
+
+
 **Event:** GenAI Hackathon Hong Kong 2026 · Track: Smart Living, Culture & Belonging
 
 ![Demo view: parent's WhatsApp, AI agent panel and the child's app](docs/images/demo.png)
