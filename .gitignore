@@ -1,0 +1,16 @@
+# Secrets: never commit your real settings
+.env
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# App data (recreated on every start)
+data/
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
