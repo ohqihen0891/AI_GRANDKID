@@ -9,7 +9,9 @@ AI GrandKid makes it easy for children living abroad to care for their ageing pa
 **Team:** Catalyst
 
 
-**Event:** GenAI Hackathon Hong Kong 2026 · Track: Smart Living, Culture & Belonging
+**Event:** GenAI Hackathon Hong Kong 2026 ·
+
+**Track:** Smart Living, Culture & Belonging
 
 ![Demo view: parent's WhatsApp, AI agent panel and the child's app](docs/images/demo.png)
 
