@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI GrandKid</title>
+<link rel="stylesheet" href="/static/tw.css">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Noto+Sans+HK:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --brand: #e8622c; --ink: #2b2622; --paper: #f7f2eb; }
+  html, body { height: 100%; }
+  body { font-family: 'Nunito', 'Noto Sans HK', sans-serif; background: var(--paper); color: var(--ink); }
+  .zh { font-family: 'Noto Sans HK', sans-serif; }
+  .card { background: #fff; border-radius: 18px; box-shadow: 0 1px 2px rgba(60,40,20,.06), 0 4px 16px rgba(60,40,20,.05); }
+  .bub-ai { background: #fff; border-radius: 4px 18px 18px 18px; box-shadow: 0 1px 2px rgba(60,40,20,.06); }
+  .bub-me { background: var(--ink); color: #fff; border-radius: 18px 4px 18px 18px; }
+  .fade { animation: fd .35s ease; } @keyframes fd { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .dots span { animation: bl 1.2s infinite; } .dots span:nth-child(2) { animation-delay: .2s } .dots span:nth-child(3) { animation-delay: .4s }
+  @keyframes bl { 50% { opacity: .2 } }
+  .tab.on { color: var(--brand); }
+  .tab.on .bar { background: var(--brand); }
+  .chip { white-space: nowrap; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  button:disabled { opacity: .5; }
+  .pill { font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  .page-paper { background: #fffaf2; background-image: linear-gradient(#f3e7d6 1px, transparent 1px); background-size: 100% 28px; }
+  .demo-only { display: none; } .demo .demo-only { display: revert; }
+</style>
+</head>
+<body>
+<div id="app" class="h-full flex flex-col max-w-[560px] mx-auto bg-[#f7f2eb]">
+
+  <header class="px-4 pt-4 pb-3 flex items-center gap-3">
+    <div class="w-11 h-11 rounded-2xl bg-[#e8622c] text-white grid place-items-center text-2xl shrink-0">👵</div>
+    <div class="min-w-0 flex-1">
+      <div class="font-extrabold leading-tight">AI GrandKid</div>
+      <div class="text-xs text-stone-500 truncate">Caring for <b id="pname">Mum</b> in Hong Kong</div>
+    </div>
+    <div class="text-right text-[11px] leading-tight">
+      <div id="mumclock" class="font-bold">--:-- HK</div>
+      <div id="myclock" class="text-stone-500">--:--</div>
+    </div>
+  </header>
+
+  <main class="flex-1 min-h-0 relative">
+    <!-- CHAT -->
+    <section id="v-chat" class="absolute inset-0 flex flex-col">
+      <div id="chat" class="flex-1 overflow-y-auto px-4 pb-3 space-y-3"></div>
+      <div class="px-3 pb-2">
+        <div id="chips" class="flex gap-2 overflow-x-auto no-scrollbar pb-2 text-xs"></div>
+        <div class="flex items-end gap-2">
+          <button id="mic" onclick="toggleRec()" title="Record a voice message for Mum"
+                  class="w-11 h-11 shrink-0 rounded-full bg-white border border-stone-200 text-lg">🎙</button>
+          <textarea id="msg" rows="1" placeholder="How can I care for Mum?"
+                    class="flex-1 resize-none rounded-2xl border border-stone-200 px-4 py-2.5 text-[15px] outline-none focus:border-[#e8622c] max-h-32"
+                    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}" oninput="autosize(this)"></textarea>
+          <button onclick="sendChat()" class="w-11 h-11 shrink-0 rounded-full bg-[#e8622c] text-white text-lg">➤</button>
+        </div>
+        <div id="recnote" class="hidden text-xs text-red-600 mt-1 px-2">● Recording a voice message for Mum… tap 🎙 again to stop</div>
+      </div>
+    </section>
+
+    <!-- CARE LOG -->
+    <section id="v-care" class="absolute inset-0 overflow-y-auto px-4 pb-6 hidden">
+      <div id="summary" class="grid grid-cols-3 gap-2 mb-4"></div>
+      <div id="alerts" class="space-y-3 mb-4"></div>
+      <div id="tasks" class="space-y-3"></div>
+      <details class="card mt-5 p-4">
+        <summary class="font-extrabold cursor-pointer">🧠 What the AI did <span class="text-xs font-normal text-stone-500">(live)</span></summary>
+        <div id="events" class="mt-3 space-y-1.5 text-sm max-h-80 overflow-y-auto"></div>
+      </details>
+    </section>
+
+    <!-- FAMILY BOOK -->
+    <section id="v-book" class="absolute inset-0 overflow-y-auto px-4 pb-6 hidden"><div id="book"></div></section>
+
+    <!-- SERVICES -->
+    <section id="v-services" class="absolute inset-0 overflow-y-auto px-4 pb-6 hidden"><div id="services"></div></section>
+  </main>
+
+  <nav class="grid grid-cols-4 bg-white border-t border-stone-200 text-[11px] font-bold text-stone-400">
+    <button class="tab on py-2 flex flex-col items-center gap-0.5" data-v="chat" onclick="tab('chat')"><span class="bar w-8 h-1 rounded-full mb-1"></span><span class="text-xl">💬</span>Chat</button>
+    <button class="tab py-2 flex flex-col items-center gap-0.5 relative" data-v="care" onclick="tab('care')"><span class="bar w-8 h-1 rounded-full mb-1"></span><span class="text-xl">✅</span>Care log<span id="badge" class="hidden"></span></button>
+    <button class="tab py-2 flex flex-col items-center gap-0.5" data-v="book" onclick="tab('book')"><span class="bar w-8 h-1 rounded-full mb-1"></span><span class="text-xl">📖</span>Family book</button>
+    <button class="tab py-2 flex flex-col items-center gap-0.5" data-v="services" onclick="tab('services')"><span class="bar w-8 h-1 rounded-full mb-1"></span><span class="text-xl">🌟</span>Services</button>
+  </nav>
+</div>
+
+<script>
+const PID = 1;
+if (new URLSearchParams(location.search).has("demo")) document.documentElement.classList.add("demo");
+let S = null, lastHash = {}, curTab = "chat", openChapter = null, sending = false, addingChapter = false;
+const CHIPS = [
+  "Remind Mum to take her blood pressure medicine every day at 2pm",
+  "Check in with Mum every morning at 9:30",
+  "Tell Mum that Ethan won his football match today",
+  "Ask Mum how she met Grandpa",
+  "Mum has an eye doctor appointment on Thursday at 10am",
+  "How is Mum this week?",
+];
+const STATUS = {
+  taken: ["✅ Taken", "bg-emerald-100 text-emerald-700"], answered: ["✅ Replied", "bg-emerald-100 text-emerald-700"],
+  delivered: ["✓ Delivered", "bg-emerald-50 text-emerald-700"], sent: ["⏳ Waiting for Mum", "bg-amber-100 text-amber-700"],
+  followed_up: ["⏳ Reminded again", "bg-amber-100 text-amber-700"], missed: ["❌ Missed", "bg-red-100 text-red-700"],
+  no_reply: ["⚠️ No reply", "bg-red-50 text-red-700"], skipped: ["– Skipped", "bg-stone-100 text-stone-500"],
+};
+const TSTATUS = {active: ["Running", "bg-emerald-100 text-emerald-700"], pending_confirm: ["Needs your OK", "bg-amber-100 text-amber-700"],
+  paused: ["Paused", "bg-stone-200 text-stone-600"], done: ["Done", "bg-stone-100 text-stone-500"], cancelled: ["Cancelled", "bg-stone-100 text-stone-400"]};
+const ICON = {"Orchestrator":"🧭","Companion":"💬","Health":"💊","Insight":"📈","Safety":"🛡️","Family Bridge":"🌉","Legacy":"📖"};
+const SERVICES = [
+  ["🏥", "Hospital escort", "陪診服務", "A trained escort goes with Mum to her doctor visit and sends you a summary."],
+  ["🚕", "Rides for Mum", "預約車程", "Book a taxi or car for Mum's appointments, with a check that she got home safely."],
+  ["🍱", "Meal & grocery delivery", "送餐送餸", "Healthy meals or groceries delivered to Mum's door when she can't go out."],
+  ["🧹", "Home care & cleaning", "家居照顧", "Vetted helpers for cleaning, cooking and light home care."],
+  ["🩺", "Health check-ups", "身體檢查", "Book check-ups and physiotherapy near Mum's home."],
+  ["🔔", "Emergency alarm partners", "平安鐘", "Connect with 24-hour emergency alarm services such as Personal Emergency Link."],
+  ["🎁", "Festival gifts", "節日禮物", "Mooncakes for Mid-Autumn, dim sum on her lunar birthday, delivered with your message."],
+  ["🎬", "Family book as a storybook or film", "回憶簿故事書", "Turn Mum's family book into an illustrated storybook or a short film for the grandchildren."],
+];
+
+const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const md = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|\s)_(.+?)_(?=\s|$)/g, "$1<i class='text-stone-500'>$2</i>").replace(/\n/g, "<br>");
+const pill = ([t, c]) => `<span class="pill ${c}">${t}</span>`;
+const hash = o => JSON.stringify(o);
+function autosize(el) { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 128) + "px"; }
+async function post(url, data) {
+  const fd = new FormData(); Object.entries(data || {}).forEach(([k, v]) => fd.append(k, v));
+  const r = await fetch(url, {method: "POST", body: fd});
+  if (!r.ok) { let m = await r.text(); try { m = JSON.parse(m).detail } catch (e) {} throw m; }
+  return r.json();
+}
+async function act(btn, fn) { if (btn) btn.disabled = true; try { await fn(); } catch (e) { alert(e); } finally { if (btn) btn.disabled = false; load(); } }
+
+function tab(v) {
+  curTab = v;
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  ["chat", "care", "book", "services"].forEach(x => document.getElementById("v-" + x).classList.toggle("hidden", x !== v));
+  lastHash = {}; render();
+  if (v === "chat") scrollChat(true);
+}
+
+async function load() {
+  try { S = await (await fetch(`/api/state?parent_id=${PID}`)).json(); } catch (e) { return; }
+  render();
+}
+function render() {
+  if (!S) return;
+  const c = S.clock, p = S.parent;
+  pname.textContent = p.name;
+  mumclock.innerHTML = `${c.mum_awake ? "☀️" : "🌙"} Mum ${c.hk} HK`;
+  myclock.textContent = `${c.hk_day} · you ${c.child} ${p.child_city}`;
+  const n = S.today.open_alerts;
+  badge.className = n ? "pill bg-red-500 text-white absolute top-1 right-5" : "hidden"; badge.textContent = n;
+  if (curTab === "chat") renderChat();
+  if (curTab === "care") renderCare();
+  if (curTab === "book") renderBook();
+  if (curTab === "services") renderServices();
+}
+
+// ================================================================== CHAT
+function scrollChat(force) { const el = document.getElementById("chat"); if (force || el.scrollHeight - el.scrollTop - el.clientHeight < 160) el.scrollTop = el.scrollHeight; }
+function renderChat() {
+  const h = hash([S.chat, S.chat_busy, S.task_by_id, S.alerts.map(a => a.status), S.book.pages, sending]);
+  if (lastHash.chat === h) return; lastHash.chat = h;
+  const el = document.getElementById("chat");
+  const near = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+  const intro = `<div class="pt-6 text-center fade">
+      <div class="text-5xl">🧒</div>
+      <div class="text-xl font-extrabold mt-2">Hi ${esc(S.parent.child_name)} 👋</div>
+      <div class="text-stone-600 mt-1 px-4">Tell me in your own words how you'd like to care for Mum. I'll take care of the rest in her Hong Kong day, and you'll see every result in the Care log.</div>
+      <div class="grid gap-2 mt-5 text-left">${CHIPS.slice(0, 4).map((t, i) => `<button onclick="useChip(${i})" class="card px-4 py-3 text-sm hover:bg-orange-50">💬 ${esc(t)}</button>`).join("")}</div>
+    </div>`;
+  el.innerHTML = (S.chat.length ? "" : intro) + S.chat.map(m => m.role === "child" ? `
+    <div class="flex justify-end fade"><div class="max-w-[85%]">
+      <div class="bub-me px-4 py-2.5 text-[15px]">${md(m.content)}</div>
+      ${(m.card?.cards || []).map(cardHTML).join("")}
+      <div class="text-[10px] text-stone-400 text-right mt-1">${esc(m.when)}</div></div></div>` : `
+    <div class="flex gap-2 fade"><div class="w-8 h-8 rounded-full bg-[#e8622c] text-white grid place-items-center text-sm shrink-0">🧒</div>
+      <div class="max-w-[88%] min-w-0">
+        ${m.content ? `<div class="bub-ai px-4 py-2.5 text-[15px]">${md(m.content)}</div>` : ""}
+        ${(m.card ? (m.card.cards || [m.card]) : []).map(cardHTML).join("")}
+        <div class="text-[10px] text-stone-400 mt-1">${esc(m.when)}</div></div></div>`).join("")
+    + (S.chat_busy || sending ? `<div class="flex gap-2"><div class="w-8 h-8 rounded-full bg-[#e8622c] text-white grid place-items-center text-sm">🧒</div>
+       <div class="bub-ai px-4 py-3 dots text-stone-400"><span>●</span><span>●</span><span>●</span></div></div>` : "");
+  chips.innerHTML = S.chat.length ? CHIPS.map((t, i) => `<button onclick="useChip(${i})" class="chip bg-white border border-stone-200 rounded-full px-3 py-1.5">${esc(t)}</button>`).join("") : "";
+  if (near || !S.chat.length) scrollChat(true);
+}
+function useChip(i) { msg.value = CHIPS[i]; autosize(msg); msg.focus(); }
+
+function taskLine(t) {
+  const d = t.details || {};
+  const extra = t.kind === "medication" ? [d.medicine && d.medicine !== t.title ? d.medicine : "", d.note_zh].filter(Boolean).join(" · ") :
+                t.kind === "appointment" ? (d.appointment_at || "") : t.kind === "checkin" ? (d.focus ? "Asks about: " + d.focus : "") :
+                t.kind === "book" ? (d.question_zh || "") : "";
+  return `<div class="font-bold">${t.icon} ${esc(t.title)} <span class="zh font-normal text-stone-500 text-sm">${esc(t.title_zh || "")}</span></div>
+          <div class="text-xs text-stone-600 mt-0.5">🕐 ${esc(t.when)}</div>${extra ? `<div class="text-xs text-stone-500 zh">${esc(extra)}</div>` : ""}`;
+}
+function runLine(t) {
+  const r = t.runs[0];
+  return r ? `<div class="mt-2">${pill(STATUS[r.status] || [r.status, "bg-stone-100"])} <span class="text-xs text-stone-600">${esc(r.outcome || "")}</span></div>` : "";
+}
+function cardHTML(c) {
+  if (c.type === "task_proposal" || c.type === "task_updated") {
+    const t = S.task_by_id[c.task_id]; if (!t) return "";
+    const pending = t.status === "pending_confirm";
+    return `<div class="card mt-2 p-3 border ${pending ? "border-amber-300" : "border-transparent"}">
+      <div class="flex justify-between items-start gap-2"><div class="min-w-0">${taskLine(t)}</div>${pill(TSTATUS[t.status] || ["", ""])}</div>
+      ${t.kind === "medication" && pending ? `<div class="text-xs text-stone-500 mt-2">If Mum doesn't reply, I'll remind her once more after 30 min and tell you if she misses it.</div>` : ""}
+      ${pending ? `<div class="flex gap-2 mt-3"><button onclick="act(this,()=>post('/api/tasks/${t.id}/confirm'))" class="flex-1 bg-[#e8622c] text-white rounded-full py-2 text-sm font-bold">Confirm</button>
+        <button onclick="act(this,()=>post('/api/tasks/${t.id}/cancel'))" class="px-4 bg-stone-100 rounded-full py-2 text-sm">Cancel</button></div>` : runLine(t)}
+    </div>`;
+  }
+  if (c.type === "planned_message") {
+    const t = S.task_by_id[c.task_id]; if (!t) return "";
+    return `<div class="card mt-2 p-3"><div class="text-xs font-extrabold text-[#e8622c]">💌 FOR MUM · ${esc(t.when)}</div>
+      ${t.details.reason ? `<div class="text-xs text-stone-500">${esc(t.details.reason)}</div>` : ""}
+      ${t.details.message_zh ? `<div class="zh text-sm bg-stone-50 rounded-lg p-2 mt-2">${esc(t.details.message_zh)}</div>` : ""}
+      ${runLine(t)}</div>`;
+  }
+  if (c.type === "alert") { const a = S.alerts.find(x => x.id === c.alert_id); return a ? alertHTML(a, true) : ""; }
+  if (c.type === "brief") {
+    return `<div class="card mt-2 overflow-hidden">
+      <div class="bg-gradient-to-br from-amber-100 to-orange-100 p-4"><div class="text-xs font-extrabold text-[#e8622c]">☀️ WHILE YOU SLEPT</div>
+        <div class="font-extrabold text-lg leading-snug mt-1">${esc(c.headline)}</div>
+        <div class="text-sm text-stone-700 mt-1">${esc(c.summary)}</div></div>
+      ${c.timeline?.length ? `<div class="p-4 pt-3"><div class="text-xs font-extrabold text-stone-500 mb-2">MUM'S DAY</div>
+        ${c.timeline.map(i => `<div class="flex gap-3 text-sm py-1 border-b border-stone-100 last:border-0">
+          <div class="text-[11px] text-stone-500 w-24 shrink-0 leading-tight pt-0.5">${esc(i.when).replace(" · ", "<br>")}</div><div class="min-w-0">${esc(i.text)}</div></div>`).join("")}</div>` : ""}
+      ${c.talking_points?.length ? `<div class="px-4 pb-3"><div class="text-xs font-extrabold text-stone-500 mb-1">💡 FOR YOUR NEXT CALL</div>
+        <ul class="text-sm space-y-1">${c.talking_points.map(t => `<li>• ${esc(t)}</li>`).join("")}</ul></div>` : ""}
+      ${c.next_actions?.length ? `<div class="px-4 pb-4"><div class="text-xs font-extrabold text-stone-500 mb-1">👉 SUGGESTED</div>
+        <ul class="text-sm space-y-1">${c.next_actions.map(a => `<li>• ${esc(a)}</li>`).join("")}</ul></div>` : ""}
+    </div>`;
+  }
+  if (c.type === "book" || c.type === "book_question") {
+    const ch = S.book.chapters.find(x => x.id === c.chapter_id); if (!ch) return "";
+    const e = c.entry_id ? ch.entries.find(x => x.id === c.entry_id) : null;
+    const t = c.task_id ? S.task_by_id[c.task_id] : null;
+    return `<button onclick="openChapter=${ch.id};tab('book')" class="card mt-2 p-3 text-left w-full page-paper">
+      <div class="text-xs font-extrabold text-amber-700">📖 ${ch.emoji} ${esc(ch.title)} · ${ch.entries.length} page${ch.entries.length === 1 ? "" : "s"}</div>
+      ${e ? `<div class="font-bold mt-1">${esc(e.title)}</div><div class="zh mt-1 text-[15px]">“${esc(e.quote || e.story_zh.slice(0, 60))}”</div>` :
+            t ? `<div class="text-sm mt-1">Asking Mum: <span class="zh">${esc(t.details.question_zh || "")}</span></div>${runLine(t)}` :
+            `<div class="text-sm mt-1">Added to the book.</div>`}
+      <div class="text-xs text-[#e8622c] font-bold mt-1">Open the family book →</div></button>`;
+  }
+  if (c.type === "service") {
+    return `<button onclick="tab('services')" class="card mt-2 p-3 text-left w-full border border-dashed border-stone-300">
+      <div class="text-xs font-extrabold text-stone-500">🌟 COMING SOON</div>
+      <div class="text-sm mt-1">${esc(c.service || "This service")} isn't available yet. See what's coming in <b>Services</b>.</div></button>`;
+  }
+  if (c.type === "voice") return `<audio controls src="/media/${esc(c.path)}" class="mt-2 h-9 w-56"></audio>`;
+  return "";
+}
+async function sendChat() {
+  const t = msg.value.trim(); if (!t || sending) return;
+  msg.value = ""; autosize(msg); sending = true;
+  S.chat.push({role: "child", content: t, when: "sending…", card: null}); lastHash.chat = null; renderChat(); scrollChat(true);
+  try { await post("/api/chat", {parent_id: PID, text: t}); } catch (e) { alert(e); }
+  sending = false; load();
+}
+let rec = null, chunks = [];
+async function toggleRec() {
+  if (rec) { rec.stop(); return; }
+  let stream; try { stream = await navigator.mediaDevices.getUserMedia({audio: true}); } catch (e) { alert("Microphone not available: " + e.message); return; }
+  chunks = []; rec = new MediaRecorder(stream); mic.classList.add("bg-red-500", "text-white"); recnote.classList.remove("hidden");
+  rec.ondataavailable = e => chunks.push(e.data);
+  rec.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(chunks, {type: rec.mimeType || "audio/webm"}); rec = null;
+    mic.classList.remove("bg-red-500", "text-white"); recnote.classList.add("hidden");
+    const fd = new FormData(); fd.append("parent_id", PID); fd.append("text", msg.value.trim());
+    fd.append("file", blob, "voice." + (blob.type.includes("mp4") ? "m4a" : "webm")); msg.value = "";
+    sending = true; renderChat(); await fetch("/api/chat/voice", {method: "POST", body: fd}); sending = false; load();
+  };
+  rec.start();
+}
+
+// ================================================================== CARE LOG
+function alertHTML(a, compact) {
+  const col = {3: "border-red-500 bg-red-50", 2: "border-amber-500 bg-amber-50", 1: "border-sky-500 bg-sky-50"}[a.level] || "";
+  const open = a.status === "open";
+  return `<div class="mt-2 border-l-4 ${col} rounded-r-2xl p-3 ${open ? "" : "opacity-60"}">
+    <div class="flex justify-between gap-2"><div class="font-bold text-sm">${a.level === 3 ? "🚨" : "⚠️"} ${esc(a.title)}</div>
+      <span class="text-[10px] text-stone-500 whitespace-nowrap">${open ? "" : "✓ handled"}</span></div>
+    ${compact ? "" : `<div class="text-sm text-stone-600 mt-1">${esc(a.detail)}</div>`}
+    ${a.evidence?.length ? `<details class="mt-1 text-xs text-stone-600" ${compact ? "" : "open"}><summary class="cursor-pointer font-semibold">Why: Mum's own words</summary>
+      <ul class="mt-1 space-y-0.5 zh">${a.evidence.map(e => `<li>“${esc(e)}”</li>`).join("")}</ul></details>` : ""}
+    ${open ? `<div class="flex flex-wrap gap-2 mt-2">${a.actions.map(x => `<button onclick="act(this,()=>post('/api/alerts/${a.id}/action',{action:'${x.id}'}))"
+      class="text-xs bg-white border border-stone-300 rounded-full px-3 py-1 hover:bg-[#2b2622] hover:text-white">${esc(x.label)}</button>`).join("")}</div>` : ""}</div>`;
+}
+function renderCare() {
+  const h = hash([S.tasks, S.alerts, S.today, S.events.slice(0, 15)]);
+  if (lastHash.care === h) return; lastHash.care = h;
+  const t = S.today;
+  const tile = (v, l, c) => `<div class="card p-3 text-center ${c}"><div class="text-xl font-extrabold">${v}</div><div class="text-[11px] text-stone-500 leading-tight">${l}</div></div>`;
+  summary.innerHTML = tile(`${t.done}/${t.total}`, "done today (HK)", "") +
+    tile(t.last_heard ? t.last_heard.split(" · ")[0].replace(" HK", "") : "—", "last heard from Mum (HK)", "") +
+    tile(t.open_alerts, "things to look at", t.open_alerts ? "!bg-red-50" : "");
+  const open = S.alerts.filter(a => a.status === "open");
+  alerts.innerHTML = open.length ? `<h2 class="font-extrabold">Needs your attention</h2>` + open.map(a => alertHTML(a, false)).join("") : "";
+  const visible = S.tasks.filter(x => !["cancelled", "pending_confirm"].includes(x.status));
+  tasks.innerHTML = `<div class="flex items-center justify-between mb-2"><h2 class="font-extrabold">Care plan</h2>
+      <span class="text-xs text-stone-500">Add or change anything in Chat</span></div>` + (visible.length ? visible.map(t => `
+    <div class="card p-4 ${t.status === "paused" ? "opacity-60" : ""}">
+      <div class="flex justify-between items-start gap-2"><div class="min-w-0">${taskLine(t)}</div>
+        <div class="text-right shrink-0">${pill(TSTATUS[t.status] || [t.status, "bg-stone-100"])}
+        ${t.week_total && t.schedule.type !== "times" ? `<div class="text-[11px] text-stone-500 mt-1">${t.week_ok}/${t.week_total} this week</div>` : ""}</div></div>
+      ${t.runs.length ? `<div class="mt-3 space-y-1.5">${t.runs.slice(0, 5).map(r => `
+        <div class="flex items-start gap-2 text-xs"><div class="w-[110px] shrink-0 text-stone-500 leading-tight"><b class="text-stone-700">${r.date}</b><br>${esc(r.when)}</div>
+          <div class="min-w-0">${pill(STATUS[r.status] || [r.status, "bg-stone-100"])} <span class="text-stone-600">${esc(r.outcome || "")}</span></div></div>`).join("")}</div>`
+        : `<div class="text-xs text-stone-400 mt-2">Nothing yet.</div>`}
+      ${t.status !== "done" ? `<div class="flex flex-wrap gap-2 mt-3 text-xs">
+        ${t.status === "active" && t.schedule.type !== "times" ? `<button onclick="act(this,()=>post('/api/tasks/${t.id}/pause'))" class="bg-stone-100 rounded-full px-3 py-1">⏸ Pause</button>` : ""}
+        ${t.status === "paused" ? `<button onclick="act(this,()=>post('/api/tasks/${t.id}/resume'))" class="bg-stone-100 rounded-full px-3 py-1">▶ Resume</button>` : ""}
+        ${t.kind === "medication" ? `<button onclick="recTask(${t.id}, this)" class="bg-stone-100 rounded-full px-3 py-1">${t.voice_path ? "🎙 Re-record your voice" : "🎙 Remind her in your voice"}</button>` : ""}
+        <button onclick="act(this,()=>post('/api/tasks/${t.id}/run'))" class="demo-only bg-white border border-dashed border-stone-300 text-stone-500 rounded-full px-3 py-1">▶ Run now</button>
+        <button onclick="if(confirm('Remove this from the care plan?'))act(this,()=>post('/api/tasks/${t.id}/delete'))" class="text-stone-400 px-2">🗑</button>
+      </div>` : ""}
+      ${t.voice_path ? `<audio controls src="/media/${t.voice_path}" class="h-8 w-full mt-2"></audio>` : ""}
+    </div>`).join("") : `<div class="card p-6 text-center text-sm text-stone-500">Nothing here yet.<br>Tell me in <b>Chat</b> how you'd like to care for Mum, and every result will show up here.</div>`);
+  events.innerHTML = S.events.map(e => `<div class="flex gap-2"><span class="w-5 shrink-0">${ICON[e.agent] || "•"}</span>
+    <div class="min-w-0 flex-1"><b>${esc(e.agent)}</b> ${esc(e.action)}${e.detail ? `<div class="text-xs text-stone-400 truncate zh">${esc(e.detail)}</div>` : ""}</div></div>`).join("")
+    || `<div class="text-stone-400">Nothing yet.</div>`;
+}
+let trec = null, tchunks = [];
+async function recTask(id, btn) {
+  if (trec) { trec.stop(); return; }
+  let stream; try { stream = await navigator.mediaDevices.getUserMedia({audio: true}); } catch (e) { alert("Microphone not available"); return; }
+  tchunks = []; trec = new MediaRecorder(stream); btn.textContent = "⏹ Stop recording"; btn.classList.add("bg-red-500", "text-white");
+  lastHash.care = "locked";
+  trec.ondataavailable = e => tchunks.push(e.data);
+  trec.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(tchunks, {type: trec.mimeType || "audio/webm"}); trec = null;
+    const fd = new FormData(); fd.append("file", blob, "voice." + (blob.type.includes("mp4") ? "m4a" : "webm"));
+    await fetch(`/api/tasks/${id}/voice`, {method: "POST", body: fd}); lastHash.care = null; load();
+  };
+  trec.start();
+}
+
+// ================================================================== FAMILY BOOK
+function renderBook() {
+  const h = hash([S.book, openChapter, addingChapter, Object.values(S.task_by_id).filter(t => t.kind === "book").map(t => t.runs[0]?.status)]);
+  if (lastHash.book === h) return; lastHash.book = h;
+  const chs = S.book.chapters;
+  if (openChapter) { const c = chs.find(x => x.id === openChapter); if (c) return renderChapter(c); }
+  book.innerHTML = `
+    <div class="card overflow-hidden mb-4">
+      <div class="p-5 bg-gradient-to-br from-amber-100 via-orange-50 to-rose-100">
+        <div class="text-xs font-extrabold text-amber-700">OUR FAMILY BOOK</div>
+        <div class="text-2xl font-extrabold leading-tight mt-1 zh">媽媽嘅故事</div>
+        <div class="text-sm text-stone-600 mt-1">Build a family culture book together with Mum, far apart but in her own words. Pick a question,
+          tap <b>Ask Mum</b>, and I'll ask her gently in WhatsApp and write her answer into the book.</div>
+        <div class="text-sm font-bold mt-3">${S.book.pages} page${S.book.pages === 1 ? "" : "s"} so far</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">${chs.map(c => {
+      const pct = Math.min(100, Math.round(c.entries.length / 3 * 100));
+      return `<button onclick="openChapter=${c.id};lastHash.book=null;renderBook()" class="card p-4 text-left">
+        <div class="text-3xl">${c.emoji}</div>
+        <div class="font-extrabold leading-tight mt-2">${esc(c.title)}</div>
+        <div class="zh text-sm text-stone-500">${esc(c.title_zh || "")}</div>
+        <div class="h-1.5 bg-stone-100 rounded-full mt-3 overflow-hidden"><div class="h-full bg-[#e8622c]" style="width:${pct}%"></div></div>
+        <div class="text-[11px] text-stone-500 mt-1">${c.entries.length} page${c.entries.length === 1 ? "" : "s"}</div></button>`;
+    }).join("")}
+      <div class="card p-4 border-2 border-dashed border-stone-200 ${addingChapter ? "col-span-2" : ""}">
+        ${addingChapter ? `<div class="font-extrabold text-sm mb-2">New chapter</div>
+          <div class="flex gap-2"><input id="nc_emoji" maxlength="2" class="w-12 border rounded-lg px-2 py-2 text-center" value="✨">
+            <input id="nc_title" class="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm" placeholder="e.g. Festivals in our family"></div>
+          <input id="nc_q" class="w-full border rounded-lg px-3 py-2 text-sm mt-2" placeholder="First question for Mum (optional)">
+          <div class="flex gap-2 mt-3"><button onclick="addChapter(this)" class="flex-1 bg-[#e8622c] text-white rounded-full py-2 text-sm font-bold">Add chapter</button>
+            <button onclick="addingChapter=false;lastHash.book=null;renderBook()" class="px-4 bg-stone-100 rounded-full text-sm">Cancel</button></div>` :
+          `<button onclick="addingChapter=true;lastHash.book=null;renderBook()" class="w-full h-full text-left">
+            <div class="text-3xl">➕</div><div class="font-extrabold mt-2">Add a chapter</div>
+            <div class="text-xs text-stone-500">Your own theme, e.g. festivals, Grandpa's shop, our village</div></button>`}
+      </div></div>`;
+}
+function renderChapter(c) {
+  const pending = c.questions.filter(q => q.status === "pending");
+  const asked = c.questions.filter(q => q.status === "asked");
+  book.innerHTML = `
+    <button onclick="openChapter=null;lastHash.book=null;renderBook()" class="text-sm font-bold text-[#e8622c] mb-3">← All chapters</button>
+    <div class="flex items-center gap-3 mb-4"><div class="text-5xl">${c.emoji}</div>
+      <div><div class="text-xl font-extrabold leading-tight">${esc(c.title)}</div><div class="zh text-stone-500">${esc(c.title_zh || "")}</div>
+      <div class="text-xs text-stone-500">${esc(c.description || "")}</div></div></div>
+    ${c.entries.length ? c.entries.map((e, i) => `
+      <article class="card page-paper p-5 mb-4 fade">
+        <div class="text-[11px] font-extrabold text-amber-700">PAGE ${i + 1}</div>
+        <h3 class="text-lg font-extrabold leading-tight mt-1">${esc(e.title)} <span class="zh font-normal text-stone-500 text-base">${esc(e.title_zh || "")}</span></h3>
+        <p class="zh text-[16px] leading-7 mt-3">${esc(e.story_zh)}</p>
+        ${e.story_en ? `<p class="text-sm text-stone-600 leading-6 mt-3 italic">${esc(e.story_en)}</p>` : ""}
+        ${e.voice_path ? `<div class="mt-3 text-xs font-bold text-stone-500">🎧 In Mum's own voice</div><audio controls src="/media/${e.voice_path}" class="h-9 w-full mt-1"></audio>` : ""}
+      </article>`).join("") : `<div class="card p-5 text-sm text-stone-500 mb-4">No pages yet. Pick a question below and tap <b>Ask Mum</b>.</div>`}
+    <div class="card p-4">
+      <div class="font-extrabold text-sm">Questions for Mum</div>
+      ${asked.map(q => `<div class="zh text-sm mt-3">⏳ ${esc(q.question_zh)} <span class="text-[11px] text-stone-400">(asked, waiting for her answer)</span></div>`).join("")}
+      ${pending.map(q => `<div class="flex items-start justify-between gap-2 mt-3">
+          <div class="zh text-sm">${esc(q.question_zh)} ${q.source === "child" ? '<span class="pill bg-orange-100 text-orange-700">your question</span>' : q.source === "followup" ? '<span class="pill bg-stone-100 text-stone-500">follow-up</span>' : ""}</div>
+          <button onclick="act(this,()=>post('/api/book/questions/${q.id}/ask'))" class="shrink-0 bg-[#2b2622] text-white rounded-full px-3 py-1 text-xs font-bold">Ask Mum</button></div>`).join("")}
+      ${!pending.length && !asked.length ? `<div class="text-sm text-stone-500 mt-2">No questions left. Add your own below.</div>` : ""}
+      <div class="flex gap-2 mt-4"><input id="newq" class="flex-1 min-w-0 border border-stone-200 rounded-full px-3 py-2 text-sm" placeholder="Add your own question for Mum…">
+        <button onclick="addQ(${c.id}, this)" class="bg-[#e8622c] text-white rounded-full px-4 text-sm font-bold">Add</button></div>
+    </div>`;
+}
+async function addQ(cid, btn) { const v = newq.value.trim(); if (!v) return; await act(btn, () => post(`/api/book/chapters/${cid}/question`, {text: v})); }
+async function addChapter(btn) {
+  const t = nc_title.value.trim(); if (!t) return;
+  await act(btn, async () => { const r = await post("/api/book/chapters", {parent_id: PID, title: t, emoji: nc_emoji.value, first_question: nc_q.value});
+    addingChapter = false; openChapter = r.chapter_id; });
+}
+
+// ================================================================== SERVICES
+function renderServices() {
+  if (lastHash.services) return; lastHash.services = 1;
+  services.innerHTML = `
+    <div class="card p-5 mb-4 bg-gradient-to-br from-stone-100 to-orange-50">
+      <div class="text-xs font-extrabold text-stone-500">COMING SOON</div>
+      <div class="text-xl font-extrabold mt-1">Care services for Mum</div>
+      <div class="text-sm text-stone-600 mt-1">Trusted local services in Hong Kong that you'll be able to arrange from abroad with one message in Chat.</div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">${SERVICES.map(([e, t, z, d]) => `
+      <div class="card p-4 opacity-80 cursor-not-allowed select-none">
+        <div class="flex justify-between items-start"><div class="text-3xl grayscale-[30%]">${e}</div><span class="pill bg-stone-100 text-stone-500">Soon</span></div>
+        <div class="font-extrabold leading-tight mt-2">${t}</div><div class="zh text-sm text-stone-500">${z}</div>
+        <div class="text-xs text-stone-500 mt-1">${d}</div></div>`).join("")}</div>`;
+}
+
+load(); setInterval(load, 1500);
+</script>
+</body>
+</html>

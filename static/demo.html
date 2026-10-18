@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI GrandKid · Demo view</title>
+<link rel="stylesheet" href="/static/tw.css">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Noto+Sans+HK:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Nunito', 'Noto Sans HK', sans-serif; background: radial-gradient(circle at 50% 0%, #3b2f2a, #1c1714); }
+  .phone { width: 390px; height: 800px; border-radius: 42px; background: #000; padding: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+  .phone iframe { width: 100%; height: 100%; border: 0; border-radius: 32px; background: #f7f2eb; }
+  .agent { transition: all .35s ease; }
+  .agent.on { background: #e8622c; color: #fff; transform: scale(1.05); box-shadow: 0 6px 18px rgba(232,98,44,.45); }
+  .fade { animation: fd .4s ease; } @keyframes fd { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
+</style>
+</head>
+<body class="min-h-screen text-white flex items-start justify-center gap-6 p-6 overflow-x-auto">
+  <div class="shrink-0 text-center">
+    <div class="text-sm text-stone-300 mb-2">👵 <b class="text-white">Mum</b> · Hong Kong · <span id="hk">--:--</span></div>
+    <div class="phone" id="simphone"><iframe src="/sim?embed=1" title="Mum's phone"></iframe></div>
+  </div>
+
+  <div class="shrink-0 w-[340px] pt-8">
+    <div class="text-center">
+      <div class="text-2xl font-extrabold">AI GrandKid</div>
+      <div class="text-sm text-stone-300">You care when you can. We take care of the rest.</div>
+    </div>
+    <div class="mt-5 rounded-3xl bg-white/10 border border-white/10 p-4">
+      <div class="text-xs font-bold text-stone-400">⏱ PRESENTER · DEMO TIME-LAPSE</div>
+      <div id="dclock" class="text-lg font-extrabold mt-1">--</div>
+      <div id="dnext" class="text-xs text-stone-300 mt-1">Next: —</div>
+      <div class="grid grid-cols-3 gap-2 mt-3 text-xs font-bold">
+        <button onclick="demo('/demo/next', this)" class="bg-[#e8622c] rounded-xl py-2">⏭ Next event</button>
+        <button onclick="demo('/demo/brief', this)" class="bg-white/15 rounded-xl py-2">☀️ Morning brief</button>
+        <button onclick="if(confirm('Start the demo again from empty?')) demo('/demo/reset', this)" class="bg-white/10 rounded-xl py-2">↺ Reset</button>
+      </div>
+      <div id="dmsg" class="text-xs text-amber-300 mt-2 min-h-[1em]"></div>
+    </div>
+    <div class="mt-4 rounded-3xl bg-white/5 border border-white/10 p-4">
+      <div class="flex items-center justify-between">
+        <div class="font-extrabold">🧠 AI agents at work</div>
+        <span class="text-xs text-stone-400">live</span>
+      </div>
+      <div id="agents" class="flex flex-wrap gap-2 mt-3"></div>
+      <div id="events" class="mt-4 space-y-2 text-sm max-h-[380px] overflow-y-auto"></div>
+    </div>
+  </div>
+
+  <div class="shrink-0 text-center">
+    <div class="text-sm text-stone-300 mb-2">👩 <b class="text-white" id="child">Ka Yan</b> · <span id="city">London</span> · <span id="ld">--:--</span></div>
+    <div class="phone"><iframe src="/?embed=1" title="Family app"></iframe></div>
+  </div>
+
+<script>
+const AGENTS = ["Orchestrator", "Companion", "Health", "Insight", "Safety", "Family Bridge", "Legacy"];
+const ICON = {"Orchestrator":"🧭","Companion":"💬","Health":"💊","Insight":"📈","Safety":"🛡️","Family Bridge":"🌉","Legacy":"📖"};
+const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let last = 0;
+async function load() {
+  let S; try { S = await (await fetch("/api/state?parent_id=1")).json(); } catch (e) { return; }
+  hk.textContent = S.clock.hk + (S.clock.mum_awake ? " ☀️" : " 🌙");
+  dclock.textContent = `${S.clock.hk_day} · ${S.clock.hk} HK · ${S.clock.child} ${S.parent.child_city}`;
+  dnext.textContent = S.upcoming?.length ? `Next: ${S.upcoming[0].label} · ${S.upcoming[0].when}` : "Next: nothing planned yet. Ask for something in the chat.";
+  ld.textContent = S.clock.child; child.textContent = S.parent.child_name; city.textContent = S.parent.child_city;
+  const off = (S.clock.offset_min || 0) * 60000;
+  const recent = {};
+  S.events.forEach(e => { if (Date.now() + off - new Date(e.created_at) < 9000) recent[e.agent] = true; });
+  agents.innerHTML = AGENTS.map(a => `<span class="agent ${recent[a] ? "on" : ""} text-xs font-bold rounded-full px-3 py-1.5 bg-white/10">${ICON[a]} ${a}</span>`).join("");
+  events.innerHTML = S.events.slice(0, 18).map(e => `<div class="flex gap-2 ${e.id > last && last ? "fade" : ""}">
+    <span class="w-5 shrink-0">${ICON[e.agent] || "•"}</span><div class="min-w-0"><b>${esc(e.agent)}</b> <span class="text-stone-300">${esc(e.action)}</span>
+    ${e.detail ? `<div class="text-xs text-stone-500 truncate">${esc(e.detail)}</div>` : ""}</div></div>`).join("");
+  last = S.events[0]?.id || 0;
+}
+async function demo(url, btn) {
+  btn.disabled = true; dmsg.textContent = "";
+  try { const fd = new FormData(); fd.append("parent_id", 1);
+        const r = await fetch(url, {method: "POST", body: fd}); const j = await r.json();
+        dmsg.textContent = r.ok ? (j.event ? `▶ ${j.event} · ${j.when}` : "") : (j.detail || "Nothing to do"); }
+  catch (e) { dmsg.textContent = String(e); }
+  btn.disabled = false; load();
+}
+load(); setInterval(load, 1200);
+</script>
+</body>
+</html>

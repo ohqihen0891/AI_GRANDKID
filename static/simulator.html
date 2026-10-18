@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mum's WhatsApp (simulator)</title>
+<link rel="stylesheet" href="/static/tw.css">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  .embed body { background: transparent; padding: 0 !important; display: block; min-height: 0; } .embed #phone { width: 100%; height: 100vh; border-radius: 0; padding: 0; box-shadow: none; } .embed #phone > div { border-radius: 0; } .embed #sidenote { display: none; }
+  body { font-family: 'Noto Sans HK', sans-serif; background: #1f2c33; }
+  .chatbg { background: #efeae2 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23d9d2c5'/%3E%3C/svg%3E"); }
+  .bin { background: #fff; border-radius: 0 10px 10px 10px; }
+  .bout { background: #d9fdd3; border-radius: 10px 0 10px 10px; }
+  .fade-in { animation: fi .3s ease; } @keyframes fi { from { opacity: 0; transform: translateY(6px);} to {opacity:1;} }
+  .typing span { animation: bl 1.2s infinite; } .typing span:nth-child(2){animation-delay:.2s} .typing span:nth-child(3){animation-delay:.4s}
+  @keyframes bl { 50% { opacity: .2; } }
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 gap-6 flex-wrap">
+<script>if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");</script>
+<div id="phone" class="w-[390px] h-[800px] rounded-[42px] bg-black p-3 shadow-2xl">
+  <div class="w-full h-full rounded-[32px] overflow-hidden flex flex-col">
+    <div class="bg-[#008069] text-white px-4 pt-6 pb-3 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full bg-white/90 grid place-items-center text-xl">🧒</div>
+      <div><div class="font-bold">AI GrandKid 乖孫</div><div class="text-xs opacity-80" id="stat">online</div></div>
+    </div>
+    <div id="chat" class="chatbg flex-1 overflow-y-auto px-3 py-3 space-y-2 text-[15px]"></div>
+    <div class="bg-[#f0f2f5] p-2">
+      <div class="flex gap-1 overflow-x-auto pb-2 text-xs" id="quick"></div>
+      <div class="flex items-center gap-2">
+        <label class="text-2xl cursor-pointer" title="Send photo">📎<input type="file" accept="image/*" class="hidden" onchange="sendImage(this)"></label>
+        <input id="txt" class="flex-1 rounded-full px-4 py-2 outline-none" placeholder="輸入訊息" onkeydown="if(event.key==='Enter')sendText()">
+        <button id="mic" onclick="toggleMic()" class="w-11 h-11 rounded-full bg-[#008069] text-white text-xl" title="Record voice">🎤</button>
+      </div>
+      <label class="text-[11px] text-stone-500 flex items-center gap-1 mt-1 px-2">
+        <input type="checkbox" id="asVoice"> Send typed text as a voice note (demo without speech recognition)
+      </label>
+    </div>
+  </div>
+</div>
+<div class="text-stone-300 text-sm max-w-xs space-y-2" id="sidenote">
+  <div class="text-white font-bold text-lg">Mum's phone (simulator)</div>
+  <p>This page behaves like Mum's WhatsApp. Use it to rehearse or record the demo if the real WhatsApp test number isn't ready.</p>
+  <p>Open the <a href="/demo" target="_blank" class="underline text-orange-300">demo view</a> to see Mum's phone, the AI agents and the family app side by side.</p>
+  <p class="text-xs text-stone-400">Tip: the 🎤 button records real voice (needs ASR in .env). Tick the box to send typed text as a "voice note".</p>
+</div>
+
+<script>
+const PID = 1;
+let lastId = 0, pendingTyping = false;
+const QUICK = [
+  "早晨呀！",
+  "食咗藥喇",
+  "今日膝頭好痛，冇落街買餸",
+  "行樓梯膝頭好痛，要慢慢行",
+  "膝頭仲係好痛，成日都唔想出街",
+  "好叻仔呀！叫佢繼續努力",
+  "【香港警務處】你嘅銀行戶口涉及洗黑錢案件，已被凍結。請即轉帳保證金到指定戶口並提供驗證碼解凍：http://hk-police-safe.top",
+  "我同公公係喺工廠識㗎，佢以前成日幫我搬貨，後來就請我去睇戲，嗰陣睇嘅係粵語長片。",
+  "以前我成日煲蓮藕湯俾啲仔女飲，蓮藕、紅豆、豬骨、陳皮，煲足三個鐘，啲湯好清甜㗎。",
+];
+const esc = s => (s ?? "").toString().replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const t = iso => new Date(iso).toLocaleTimeString("en-GB", {timeZone: "Asia/Hong_Kong", hour: "2-digit", minute: "2-digit"});
+const day = iso => new Date(iso).toLocaleDateString("en-GB", {timeZone: "Asia/Hong_Kong", weekday: "short", day: "numeric", month: "short"});
+let lastDay = "", chatCount = 0;
+function divider(m) {
+  const d = day(m.created_at); if (d === lastDay) return; lastDay = d;
+  chat.insertAdjacentHTML("beforeend", `<div class="flex justify-center my-2"><span class="text-[11px] bg-white/90 text-stone-600 rounded-lg px-3 py-1 shadow-sm">${d}</span></div>`);
+}
+
+quick.innerHTML = QUICK.map((q, i) => `<button onclick="useQuick(${i})" class="whitespace-nowrap bg-white rounded-full px-3 py-1 border">${esc(q.slice(0, 14))}…</button>`).join("");
+function useQuick(i) { txt.value = QUICK[i]; txt.focus(); }
+
+function bubble(m) {
+  const mine = m.sender === "parent";
+  let body = "";
+  if (m.sender === "child" && m.type !== "audio") body += "";
+  if (m.type === "audio" && m.media_path) body += `<audio controls src="/media/${m.media_path}" class="h-9 w-56"></audio>`;
+  else if (m.type === "audio") body += `<div class="text-xs text-stone-500">🎤 Voice note</div>`;
+  if (m.type === "image" && m.media_path) body += `<img src="/media/${m.media_path}" class="rounded-lg max-h-56 mb-1">`;
+  if (m.content && !(m.type === "audio" && !mine && m.content.startsWith("("))) {
+    body += `<div class="${m.type==='audio' ? 'text-xs text-stone-500 mt-1' : ''} whitespace-pre-wrap">${m.type==='audio' && mine ? '“' + esc(m.content) + '”' : esc(m.content)}</div>`;
+  }
+  let btns = "";
+  if (m.type === "buttons" && m.meta?.buttons) {
+    btns = `<div class="mt-1 grid gap-1">${m.meta.buttons.map(b => `<button onclick="tapButton('${b.id}', '${esc(b.title)}', this)" class="bin text-[#008069] font-medium py-2 text-center rounded-lg w-full">${esc(b.title)}</button>`).join("")}</div>`;
+  }
+  return `<div class="flex ${mine ? 'justify-end' : ''} fade-in"><div class="max-w-[82%]">
+    <div class="${mine ? 'bout' : 'bin'} px-3 py-2 shadow-sm">${body}
+    <div class="text-[10px] text-stone-400 text-right mt-0.5">${t(m.created_at)} ${mine ? '✓✓' : ''}</div></div>${btns}</div></div>`;
+}
+
+async function poll() {
+  try { const all = await (await fetch(`/sim/messages?parent_id=${PID}&after_id=0`)).json();
+        if (all.length < chatCount) { chat.innerHTML = ""; lastId = 0; lastDay = ""; } chatCount = all.length; } catch (e) {}
+  try {
+    const rows = await (await fetch(`/sim/messages?parent_id=${PID}&after_id=${lastId}`)).json();
+    if (rows.length) {
+      document.getElementById("typing")?.remove();
+      rows.forEach(m => { divider(m); chat.insertAdjacentHTML("beforeend", bubble(m)); lastId = m.id; if (m.sender !== "parent") pendingTyping = false; });
+      if (pendingTyping) showTyping();
+      chat.scrollTop = chat.scrollHeight;
+    }
+  } catch (e) {}
+  stat.textContent = pendingTyping ? "typing…" : "online";
+}
+function showTyping() {
+  if (document.getElementById("typing")) return;
+  chat.insertAdjacentHTML("beforeend", `<div id="typing" class="flex"><div class="bin px-4 py-3 typing"><span>●</span><span>●</span><span>●</span></div></div>`);
+  chat.scrollTop = chat.scrollHeight;
+}
+async function send(fd) { pendingTyping = true; showTyping(); await fetch("/sim/send", {method: "POST", body: fd}); poll(); }
+
+function sendText() {
+  const v = txt.value.trim(); if (!v) return;
+  const fd = new FormData(); fd.append("parent_id", PID); fd.append("text", v); fd.append("kind", asVoice.checked ? "audio" : "text");
+  txt.value = ""; send(fd);
+}
+function sendImage(input) {
+  const f = input.files[0]; if (!f) return;
+  const fd = new FormData(); fd.append("parent_id", PID); fd.append("kind", "image"); fd.append("file", f); fd.append("text", txt.value || "");
+  txt.value = ""; input.value = ""; send(fd);
+}
+async function tapButton(id, title, el) {
+  el.disabled = true; el.classList.add("opacity-50");
+  const fd = new FormData(); fd.append("parent_id", PID); fd.append("button_id", id); fd.append("title", title);
+  pendingTyping = true; await fetch("/sim/button", {method: "POST", body: fd}); poll();
+}
+
+let rec = null, chunks = [];
+async function toggleMic() {
+  if (rec) { rec.stop(); return; }
+  let stream; try { stream = await navigator.mediaDevices.getUserMedia({audio: true}); } catch (e) { alert("Microphone not available"); return; }
+  chunks = []; rec = new MediaRecorder(stream); mic.classList.add("bg-red-600"); mic.textContent = "⏹";
+  rec.ondataavailable = e => chunks.push(e.data);
+  rec.onstop = () => {
+    stream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(chunks, {type: rec.mimeType || "audio/webm"}); rec = null;
+    mic.classList.remove("bg-red-600"); mic.textContent = "🎤";
+    const fd = new FormData(); fd.append("parent_id", PID); fd.append("kind", "audio");
+    fd.append("file", blob, "voice." + (blob.type.includes("mp4") ? "m4a" : "webm")); send(fd);
+  };
+  rec.start();
+}
+
+poll(); setInterval(poll, 1200);
+</script>
+</body>
+</html>
